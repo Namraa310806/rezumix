@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";;
 import bcrypt from "bcryptjs";
 import userModel from "@/models/userModel";
 import { connectDB } from "@/db/connectDB";
+import { isValidEmail } from "@/lib/validation";
 
 export const authOptions = NextAuth({
   secret: process.env.JWT_SECRET,
@@ -24,6 +25,11 @@ export const authOptions = NextAuth({
           }
 
           const sanitizedEmail = email.trim().toLowerCase();
+
+          // Validate email format
+          if (!isValidEmail(sanitizedEmail)) {
+            throw new Error("Invalid email format");
+          }
 
           const user = await userModel.findOne({ email: sanitizedEmail });
           if (!user) {

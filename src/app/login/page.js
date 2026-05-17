@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
-import { Mail, Lock, ArrowRight, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { EMAIL_REGEX } from "@/lib/validation";
 
 // --- Components ---
 
@@ -29,9 +30,9 @@ function SpotlightCard({ children, className = "" }) {
                 style={{
                     background: useMotionTemplate`
             radial-gradient(
-              650px circle at ${mouseX}px ${mouseY}px,
-              rgba(59, 130, 246, 0.1),
-              transparent 80%
+               650px circle at ${mouseX}px ${mouseY}px,
+               rgba(59, 130, 246, 0.1),
+               transparent 80%
             )
           `,
                 }}
@@ -57,6 +58,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [emailTouched, setEmailTouched] = useState(false);
 
     const { data: session } = useSession();
     const router = useRouter();
@@ -72,13 +74,29 @@ export default function LoginPage() {
         }
     }, [session, router]);
 
+    // Email validation state
+    const isEmailValid = useMemo(() => {
+        return EMAIL_REGEX.test(email);
+    }, [email]);
+
+    const handleEmailBlur = useCallback(() => {
+        setEmailTouched(true);
+    }, []);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setEmailTouched(true);
+
+        if (!isEmailValid) {
+            setError("Please enter a valid email address.");
+            return;
+        }
+
         setLoading(true);
         setError("");
 
         const result = await signIn("credentials", {
-            email,
+            email: email.trim().toLowerCase(),
             password,
             redirect: false,
         });
@@ -98,9 +116,6 @@ export default function LoginPage() {
         if (result?.user?.role && roleRedirects[result.user.role]) {
             router.push(roleRedirects[result.user.role]);
         } else {
-            // Fallback if user role is not immediately available in result
-            // Usually next-auth handles session update automatically, 
-            // so we can often just wait for the useEffect hook or redirect to dashboard
             router.push("/dashboard");
         }
 
@@ -145,8 +160,9 @@ export default function LoginPage() {
                     )}
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
+                        {/* Email Input */}
                         <div className="space-y-2">
                             <label className="text-xs font-medium text-slate-300 ml-1 uppercase tracking-wider">Email</label>
                             <div className="relative group">
@@ -155,14 +171,37 @@ export default function LoginPage() {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
+                                    onBlur={handleEmailBlur}
                                     placeholder="name@company.com"
-                                    required
-                                    className="w-full bg-[#050505] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all"
+                                    className={`w-full bg-[#050505] border rounded-xl py-3 pl-12 pr-10 text-white placeholder-slate-600 focus:outline-none focus:ring-1 transition-all ${
+                                        emailTouched && !isEmailValid
+                                            ? "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50"
+                                            : emailTouched && isEmailValid
+                                            ? "border-green-500/30 focus:border-green-500/50 focus:ring-green-500/50"
+                                            : "border-white/10 focus:border-blue-500/50 focus:ring-blue-500/50"
+                                    }`}
                                 />
+                                {emailTouched && (
+                                    <div className="absolute right-4 top-3.5">
+                                        {isEmailValid ? (
+                                            <CheckCircle2 className="w-5 h-5 text-green-400" />
+                                        ) : (
+                                            <AlertCircle className="w-5 h-5 text-red-400" />
+                                        )}
+                                    </div>
+                                )}
                             </div>
+                            {emailTouched && !isEmailValid && (
+                                <p className="text-xs text-red-400 ml-1 flex items-center gap-1.5 animate-fadeIn">
+                                    <span className="w-1 h-1 rounded-full bg-red-400 flex-shrink-0" />
+                                    Enter a valid email address (e.g. name@example.com)
+                                </p>
+                            )}
                         </div>
 
+                        {/* Password Input */}
                         <div className="space-y-2">
+                            <label className="text-xs font-medium text-slate-300 ml-1 uppercase tracking-wider">Password</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                                 <input
@@ -176,10 +215,11 @@ export default function LoginPage() {
                             </div>
                         </div>
 
+                        {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={loading}
-                            className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 mt-6 shadow-lg shadow-white/5 disabled:opacity-70 disabled:cursor-not-allowed"
+                            disabled={loading || !email || !password || (emailTouched && !isEmailValid)}
+                            className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 mt-6 shadow-lg shadow-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {loading ? (
                                 <>
@@ -205,6 +245,7 @@ export default function LoginPage() {
                         </p>
                     </div>
 
+                    {/* Spotlight Card Inner Wrapper */}
                 </SpotlightCard>
             </motion.div>
         </div>
