@@ -1,17 +1,21 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
-const OTPSchema = mongoose.Schema({
+const OTPSchema = mongoose.Schema(
+  {
     email: {
-        type: String
+      type: String,
     },
     otp: {
-        type: String
+      type: String,
     },
     expiresAt: {
-        type: Date
+      type: Date,
     },
-}, {
-    timestaps: true
-})
+  },
+  {
+    timestamps: true,
+  }
+);
 
-export default mongoose.models.OTP || mongoose.model("OTP", OTPSchema);
+export default mongoose.models.OTP ||
+  mongoose.model("OTP", OTPSchema);
